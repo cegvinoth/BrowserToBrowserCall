@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>iHealthLabs Browser to Browser Call DashBoard</title>
+  <link href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" rel="stylesheet">
+  <link href="dashboard.css" rel="stylesheet">
+  <script src="https://unpkg.com/react@15.3.0/dist/react.js"></script>
+  <script src="https://unpkg.com/react-dom@15.3.0/dist/react-dom.js"></script>
+  <script src="https://unpkg.com/babel-standalone@6.15.0/babel.min.js"></script>
+  <script type="text/javascript" src="//media.twiliocdn.com/sdk/js/client/v1.3/twilio.min.js"></script>
+  <script src="https://cdn.socket.io/socket.io-1.3.5.js"></script>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js"></script>
+</head>
+
+<body>
+  <script type="text/babel">
+  var ref;
+  var CallBox = React.createClass({
+    getInitialState: function() {
+      return {setCallStatus:'Application Ready'};
+    },
+    componentDidMount: function() {
+
+      InitiateWebApp();
+      var socket = io();
+      ref = this;
+      socket.on('call progress event',function(call){
+          ref.setState({setCallStatus: call.callStatus});
+      });
+    },
+    render: function() {
+      return (
+        <div className="callBox panel-heading">
+        Call Progress Events:
+        <div class="panel-body">
+        <center><h2 id="callprogress"> {this.state.setCallStatus} </h2></center>
+        </div>
+        </div>
+      );
+    }
+  });
+
+  ReactDOM.render(
+    <CallBox />,
+    document.getElementById('log')
+  );
+
+  function InitiateWebApp()
+  {
+    $.getJSON('/token')
+    .done(function (data) {
+
+      Twilio.Device.setup(data.token);
+      Twilio.Device.ready(function (device) {
+        document.getElementById('call-controls').style.display = 'block';
+      });
+
+      Twilio.Device.error(function (error) {
+        document.getElementById('log').style.display = 'block';
+      });
+
+      Twilio.Device.connect(function (conn) {
+        //log('Successfully established call!');
+        document.getElementById('button-call').style.display = 'none';
+        document.getElementById('button-hangup').style.display = 'inline';
+      });
+
+      Twilio.Device.disconnect(function (conn) {
+        document.getElementById('log').style.display = 'block';
+        document.getElementById('button-call').style.display = 'inline';
+        document.getElementById('button-hangup').style.display = 'none';
+      });
+
+      Twilio.Device.incoming(function (conn) {
+        document.getElementById('log').style.display = 'block';
+        var archEnemyPhoneNumber = '+12099517118';
+
+        if (conn.parameters.From === archEnemyPhoneNumber) {
+          conn.reject();
+          log('It\'s your nemesis. Rejected call.');
+        } else {
+          document.getElementById('log').style.display = 'block';
+          ref.setState({setCallStatus: "Incoming Call from "+conn.parameters.From});
+          conn.accept();
+        }
+      });
+
+      setClientNameUI(data.identity);
+    })
+    .fail(function () {
+      log('Could not get a token from server!');
+    });
+    document.getElementById('button-call').onclick = function () {
+      document.getElementById('log').style.display = 'block';
+      var params = {
+        To: document.getElementById('phone-number').value
+      };
+
+      ref.setState({setCallStatus: 'Calling '+params.To})
+      console.log('Calling ' + params.To + '...');
+      Twilio.Device.connect(params);
+    };
+    document.getElementById('button-hangup').onclick = function () {
+      document.getElementById('log').style.display = 'block';
+      ref.setState({setCallStatus: "Disconnecting"});
+      Twilio.Device.disconnectAll();
+    };
+  }
+
+  function log(message) {
+    var logDiv = document.getElementById('log');
+    logDiv.innerHTML += '<p>&gt;&nbsp;' + message + '</p>';
+    logDiv.scrollTop = logDiv.scrollHeight;
+  }
+
+  function setClientNameUI(clientName) {
+    var div = document.getElementById('client-name');
+    div.innerHTML = 'My Client name: <strong>' + clientName +
+    '</strong>';
+  }
+  </script>
+
+
+  <nav class="navbar navbar-inverse navbar-fixed-top">
+    <div class="container-fluid">
+      <div class="navbar-header">
+        <a class="navbar-brand" href="#">Browser to Browser Call</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container-fluid">
+    <div class="row">
+      <div class="col-sm-3 col-md-2 sidebar">
+        <ul class="nav nav-sidebar">
+          <li class="active"><a href="#">Call Progress Details <span class="sr-only">(current)</span></a></li>
+          <li><a href="projectdetails.html"> Technical Details about this Application </a></li>
+        </ul>
+      </div>
+      <div class="col-sm-9 col-sm-offset-3 col-md-10 col-md-offset-2 main">
+        <h1 class="page-header">Dashboard</h1>
+        <h4 class="sub-header" id="client-name">Twilio Client</h4>
+        <div class="panel panel-success" id="log">
+        </div>
+        <div class="panel panel-primary">
+           <div class="panel-heading">Make a Call</div>
+           <div class="panel-body">
+             <h3>Enter Client Name below to Call</h3>
+             <div class="form-call">
+               <input type="text" id="phone-number" class="form-control" placeholder="Enter Client Name to Call" autofocus>
+               <button id="button-call" class="btn btn-lg btn-primary btn-block">Call</button>
+               <button id="button-hangup" class="btn btn-lg btn-primary btn-block">HangUp</button>
+           </div>
+         </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>
